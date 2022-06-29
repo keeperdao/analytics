@@ -6,6 +6,8 @@ import datetime
 import time
 
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use( 'tkagg' )
 
 
 DB_LOGIN = ""
@@ -58,7 +60,7 @@ while timestamp < datetime.datetime.timestamp(datetime.datetime.now()):
 
     usdVoume = dailyFills["makerTokenFilledAmountUSD"].sum()
 
-    print(f"volume from {day} to {day + datetime.timedelta(days=1)}: {usdVoume}")
+    # print(f"volume from {day} to {day + datetime.timedelta(days=1)}: {usdVoume}")
 
     day = day + datetime.timedelta(days=1)
     timestamp = datetime.datetime.timestamp(day)
@@ -72,20 +74,34 @@ revenue = pds.read_csv(
 dailyVolumeUSD.index = pds.to_datetime(dailyVolumeUSD.index)
 revenue.index = pds.to_datetime(revenue.index)
 
-ax1 = dailyVolumeUSD.plot(kind="bar")
-ax2 = ax1.twinx()
+total_volume_USD = volumeUSD["makerTokenFilledAmountUSD"].sum()
+total_supply_revenue = revenue["Protocol Revenue ($)"].sum()
+total_protocol_revenue = revenue["Treasury Revenue ($)"].sum()
 
+revenue = revenue.resample('3D').sum()
+dailyVolumeUSD = dailyVolumeUSD.resample('3D').sum()
+revenue = revenue.cumsum()
+dailyVolumeUSD = dailyVolumeUSD.cumsum()
+
+fmt_str = "%d-%m"
+dailyVolumeUSD.index = dailyVolumeUSD.index.strftime(fmt_str)
+revenue.index = revenue.index.strftime(fmt_str)
+
+ax1 = dailyVolumeUSD.plot(kind="bar")
+# plt.ylim((10^6, 300*10^6))
+ax2 = ax1.twinx()
 revenue.plot(kind="bar", ax=ax2, color=["#ff7f0e", "#2ca02c"])
+
+ax2.set_ylim(0, 300000)
+# ax2.set_ylim(0, 5000)
 
 plt.show()
 
-
-total_volume_USD = volumeUSD["makerTokenFilledAmountUSD"].sum()
-total_supply_revenue = revenue["Supply-side revenue ($)"].sum()
-total_protocol_revenue = revenue["Protocol revenue ($)"].sum()
-
-print(f"Supply-side revenue to volume ratio: {total_supply_revenue / total_volume_USD}")
-print(f"Protocol revenue to volume ratio: {total_protocol_revenue / total_volume_USD}")
+print(total_protocol_revenue)
+print(total_supply_revenue)
+print(total_volume_USD)
+print(f"Protocol revenue to volume ratio: {total_supply_revenue / total_volume_USD}")
+print(f"Treasury revenue to volume ratio: {total_protocol_revenue / total_volume_USD}")
 
 
 ##dataFrame.to_csv("hidingBookOrders.csv")
