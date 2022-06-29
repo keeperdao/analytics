@@ -10,7 +10,7 @@ import matplotlib
 matplotlib.use( 'tkagg' )
 
 
-DB_LOGIN = "postgresql+psycopg2://readonly:0Llz$FU10&$znENe@staging-rook-api-db.cgyy5qxl0fmp.us-east-2.rds.amazonaws.com/staging"
+DB_LOGIN = ""
 
 
 # Create an engine instance
