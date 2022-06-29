@@ -1,4 +1,3 @@
-from numpy import inner
 import psycopg2
 import pandas as pds
 from sqlalchemy import create_engine
@@ -7,7 +6,8 @@ import time
 
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use( 'tkagg' )
+
+# matplotlib.use("tkagg")
 
 
 DB_LOGIN = ""
@@ -109,7 +109,7 @@ while timestamp < datetime.datetime.timestamp(datetime.datetime.now()):
     day = day + datetime.timedelta(days=1)
     timestamp = datetime.datetime.timestamp(day)
 
-bid_volume_data.set_index('Date', inplace=True)
+bid_volume_data.set_index("Date", inplace=True)
 dailyVolumeUSD = pds.DataFrame({"Date": datetimes, "volumeUSD": dailyVolume})
 dailyVolumeUSD.set_index("Date", inplace=True)
 revenue = pds.read_csv(
@@ -124,42 +124,61 @@ total_volume_USD = volumeUSD["makerTokenFilledAmountUSD"].sum()
 total_supply_revenue = revenue["Protocol Revenue ($)"].sum()
 total_protocol_revenue = revenue["Treasury Revenue ($)"].sum()
 
-revenue = revenue.resample('3D').sum()
-dailyVolumeUSD = dailyVolumeUSD.resample('3D').sum()
-bid_volume_data = bid_volume_data.resample('3D').sum()
+daily_volume_USD = pds.DataFrame(
+    {"timestamp": volumeUSD["timestamp"], "volumeUSD": volumeUSD["makerTokenFilledAmountUSD"]}
+)
+daily_volume_USD["Date"] = [datetime.datetime.fromtimestamp(timestamp) for timestamp in daily_volume_USD["timestamp"]]
+daily_volume_USD.set_index("Date", inplace=True)
+daily_volume_USD.index = pds.to_datetime(daily_volume_USD.index)
+
+revenue = revenue.resample("3D").sum()
+daily_volume_USD = daily_volume_USD.resample("3D").sum()
+bid_volume_data = bid_volume_data.resample("3D").sum()
 revenue = revenue.cumsum()
-dailyVolumeUSD = dailyVolumeUSD.cumsum()
+daily_volume_USD = daily_volume_USD.cumsum()
 bid_volume_data = bid_volume_data.cumsum()
 
+print(daily_volume_USD)
+
 fmt_str = "%d-%m"
-dailyVolumeUSD.index = dailyVolumeUSD.index.strftime(fmt_str)
+daily_volume_USD.index = daily_volume_USD.index.strftime(fmt_str)
 revenue.index = revenue.index.strftime(fmt_str)
 bid_volume_data.index = bid_volume_data.index.strftime(fmt_str)
 
 # bid_volume_data = bid_volume_data.loc[:, ['correctedRookBidUSD', 'makerTokenFilledAmountUSD']]
 
-bid_volume_data['income_ratio'] = bid_volume_data['correctedRookBidUSD']/bid_volume_data['makerTokenFilledAmountUSD']
+bid_volume_data["income_ratio"] = bid_volume_data["correctedRookBidUSD"] / daily_volume_USD["volumeUSD"]
+
 
 fig = plt.figure()
+subfigs = fig.subfigures(2, 1)
 
-ax1 = fig.add_subplot(111)
+ax1 = subfigs[0].add_subplot(111)
 ax2 = ax1.twinx()
+daily_volume_USD.plot(kind="bar", ax=ax1, y=["volumeUSD"], color=["blue"])
+bid_volume_data.plot(kind="bar", ax=ax2, y=["correctedRookBidUSD"], color=["red"])
 
-bid_volume_data.plot(kind='line', ax=ax1, y='income_ratio')
-bid_volume_data.plot(kind='bar', ax=ax2, y=['correctedRookBidUSD', 'makerTokenFilledAmountUSD'], color=['blue', 'red'])
+
 # # revenue.plot(kind="bar", ax=ax2, color=["#ff7f0e", "#2ca02c"])
 # bid_volume_data.correctedRookBidUSD.plot(kind="bar", ax=ax2, #color=["#ff7f0e", "#2ca02c"])
 
-ax1.legend(loc='upper left')
-ax2.legend(loc='upper right')
+ax1.legend(loc="upper left")
+ax2.legend(loc="upper right")
 
-ax1.set_ylabel('Income Ratio')
-ax2.set_ylabel('Volume')
+ax1.set_ylabel("Trading Volume ($)")
+ax2.set_ylabel("ROOK bid volume ($)")
+
+ax1.set_ylim(0, 300000000)
+ax2.set_ylim(0, 500000)
 
 # plt.ylim((10^6, 300*10^6))
-ax1.set_ylim(0, .002)
+# ax1.set_ylim(0, 0.002)
 # ax2.set_ylim(0, 300000)
 
+ax13 = subfigs[1].add_subplot(111, sharex=ax1)
+ax13.get_shared_x_axes().join(ax13, ax2)
+bid_volume_data.plot(kind="line", ax=ax13, y="income_ratio")
+ax13.set_ylim(0, 0.002)
 plt.show()
 
 print(total_protocol_revenue)
